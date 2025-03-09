@@ -25,7 +25,7 @@ $role = $_SESSION["role"];
 
 <h2>Welcome, <?php echo $_SESSION["name"]; ?></h2>
 
-<!-- Toggle Buttons Based on Role -->
+<!-- Role-Based Buttons -->
 <?php if ($role === "Admin"): ?>
     <button>Admin</button>
     <button>Manager</button>
@@ -37,6 +37,9 @@ $role = $_SESSION["role"];
     <button>User</button>
 <?php endif; ?>
 
+<!-- File Upload & View Files -->
+<a href="upload.php">Upload File</a>
+<a href="view_files.php">View Files</a>
 <a href="logout.php">Logout</a>
 
 </body>
