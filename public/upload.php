@@ -50,11 +50,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </head>
 <body>
 
-<form method="POST">
-    <input type="email" name="email" required placeholder="Email">
-    <input type="password" name="password" required placeholder="Password">
-    <button type="submit">Login</button>
+<form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+    <button type="submit">Upload</button>
 </form>
+<a href="dashboard.php">Back to Dashboard</a>
 
 </body>
 </html>
