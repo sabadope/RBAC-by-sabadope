@@ -2,42 +2,34 @@
 session_start();
 include '../src/config.php';
 
-if (!isset($_SESSION["user_id"])) {
-    header("Location: login.php");
+// Ensure only admin can upload files
+if (!isset($_SESSION["admin_logged_in"]) || $_SESSION["role"] !== "Admin") {
+    header("Location: admin_dashboard.php");
     exit();
 }
 
+// Check if admin_id is stored in the session
+$admin_id = $_SESSION["admin_id"] ?? 1; // Use session admin_id, default to 1 if not set
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
-    $user_id = $_SESSION["user_id"];
     $uploadDir = "../uploads/";
 
-    // Create directory if not exists
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
 
     $fileName = basename($_FILES["file"]["name"]);
-    $file_extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    $allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'png'];
-
-    // Validate file type
-    if (!in_array($file_extension, $allowed_extensions)) {
-        $_SESSION["error"] = "Invalid file type! Only PDF, DOC, DOCX, JPG, and PNG are allowed.";
-        header("Location: view_files.php");
-        exit();
-    }
-
     $targetFilePath = $uploadDir . $fileName;
 
     if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
-        // Insert file info into database
+        // Insert file details into the database
         $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)");
-        $stmt->bind_param("iss", $user_id, $fileName, $targetFilePath);
-
+        $stmt->bind_param("iss", $admin_id, $fileName, $targetFilePath);
+        
         if ($stmt->execute()) {
             $_SESSION["success"] = "File uploaded successfully.";
         } else {
-            $_SESSION["error"] = "Error saving file to database.";
+            $_SESSION["error"] = "Database error: " . $stmt->error;
         }
 
         $stmt->close();
@@ -45,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
         $_SESSION["error"] = "Error uploading file.";
     }
 
-    header("Location: view_files.php"); // Redirect to view files page
+    header("Location: view_files.php");
     exit();
 }
 ?>
@@ -73,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
     <input type="file" name="file" required>
     <button type="submit">Upload</button>
 </form>
-<a href="dashboard.php">Back to Dashboard</a>
+<a href="admin_dashboard.php">Back to Dashboard</a>
 
 </body>
 </html>
