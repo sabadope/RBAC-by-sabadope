@@ -10,12 +10,21 @@ if (!isset($_SESSION["user_id"])) {
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $user_id = $_SESSION["user_id"];
     $uploadDir = "../uploads/";
-    
+
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
 
     $fileName = basename($_FILES["file"]["name"]);
+    $file_extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION)); // Get file extension
+    $allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'png']; // Allowed file types
+
+    // Validate file type
+    if (!in_array($file_extension, $allowed_extensions)) {
+        echo "Invalid file type! Only PDF, DOC, DOCX, JPG, and PNG are allowed.";
+        exit();
+    }
+
     $targetFilePath = $uploadDir . $fileName;
 
     if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
@@ -34,6 +43,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
