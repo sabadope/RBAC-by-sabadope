@@ -58,7 +58,7 @@ $result = $stmt->get_result();
 </head>
 <body>
     <h2>Manage Files</h2>
-    <table border="1">
+    <table border="1" class="table table-striped">
         <tr>
             <th>Filename</th>
             <th>Action</th>

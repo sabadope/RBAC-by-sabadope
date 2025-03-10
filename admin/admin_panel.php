@@ -41,7 +41,7 @@ $result = $conn->query("SELECT id, name, email, role FROM users");
 </head>
 <body>
     <h2>Admin Panel - Manage Users</h2>
-    <table border="1">
+    <table border="1" class="table table-striped">
         <tr>
             <th>ID</th>
             <th>Name</th>

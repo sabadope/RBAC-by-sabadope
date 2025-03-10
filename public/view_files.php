@@ -42,7 +42,7 @@ $result = $conn->query($query);
 <body>
 
 <h2>Uploaded Files</h2>
-<table border="1">
+<table border="1" class="table table-striped">
     <tr>
         <th>Uploaded By</th>
         <th>File Name</th>
