@@ -1,0 +1,9 @@
+AuthType Basic
+AuthName "Restricted Admin Access"
+AuthUserFile "/opt/lampp/htdocs/RBAC-by-sabadope/admin/.htpasswd"
+Require valid-user
+
+# Force re-authentication on every page load
+AuthBasicAuthoritative Off
+AuthBasicProvider file
+Header always unset Authorization

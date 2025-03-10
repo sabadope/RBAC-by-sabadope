@@ -1,6 +1,5 @@
 <?php
-session_start();
-session_destroy();
-header("Location: login.php");
-exit();
+header('HTTP/1.0 401 Unauthorized');
+header('Location: admin_dashboard.php');
+exit;
 ?>
