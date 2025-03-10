@@ -50,5 +50,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <button type="submit">Login</button>
 </form>
 
+<a href="../admin/admin_login.php?force_auth=1">Admin Login</a>
+
+
 </body>
 </html>

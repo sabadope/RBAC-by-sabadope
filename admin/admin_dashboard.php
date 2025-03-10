@@ -38,5 +38,10 @@ if ($_SERVER['PHP_AUTH_USER'] !== $valid_username || $_SERVER['PHP_AUTH_PW'] !==
 <h1>Welcome, Admin!</h1>
 <p>This is the admin panel.</p>
 
+<a href="manage_files.php">Upload File</a>
+<a href="view_files.php">View Files</a>
+<a href="admin_logout.php">Logout</a>
+
+
 </body>
 </html>
