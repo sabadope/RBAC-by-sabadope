@@ -42,7 +42,7 @@ $role = $_SESSION["role"];
 <!-- File Upload & View Files -->
 <a href="upload.php">Upload File</a>
 <a href="view_files.php">View Files</a>
-<a href="logout.php">Logout</a>
+<a href="login.php">Logout</a>
 
 </body>
 </html>

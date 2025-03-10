@@ -7,42 +7,49 @@ if (!isset($_SESSION["user_id"])) {
     exit();
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
     $user_id = $_SESSION["user_id"];
     $uploadDir = "../uploads/";
 
+    // Create directory if not exists
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
 
     $fileName = basename($_FILES["file"]["name"]);
-    $file_extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION)); // Get file extension
-    $allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'png']; // Allowed file types
+    $file_extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    $allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'png'];
 
     // Validate file type
     if (!in_array($file_extension, $allowed_extensions)) {
-        echo "Invalid file type! Only PDF, DOC, DOCX, JPG, and PNG are allowed.";
+        $_SESSION["error"] = "Invalid file type! Only PDF, DOC, DOCX, JPG, and PNG are allowed.";
+        header("Location: view_files.php");
         exit();
     }
 
     $targetFilePath = $uploadDir . $fileName;
 
     if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
+        // Insert file info into database
         $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)");
         $stmt->bind_param("iss", $user_id, $fileName, $targetFilePath);
 
         if ($stmt->execute()) {
-            echo "File uploaded successfully.";
+            $_SESSION["success"] = "File uploaded successfully.";
         } else {
-            echo "Error saving file to database.";
+            $_SESSION["error"] = "Error saving file to database.";
         }
 
         $stmt->close();
     } else {
-        echo "Error uploading file.";
+        $_SESSION["error"] = "Error uploading file.";
     }
+
+    header("Location: view_files.php"); // Redirect to view files page
+    exit();
 }
 ?>
+
 
 
 <!DOCTYPE html>
