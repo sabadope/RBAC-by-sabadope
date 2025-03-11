@@ -2,35 +2,45 @@
 session_start();
 include '../src/config.php';
 
-if (!isset($_SESSION["user_id"])) {
-    header("Location: login.php");
+// Redirect if not logged in or not an admin
+if (!isset($_SESSION['admin_id'])) {
+    header("Location: admin_login.php");
     exit();
 }
 
-$role = $_SESSION["role"];
-$user_id = $_SESSION["user_id"];
+// Fetch all uploaded files from Users and Managers
+$query = "
+    SELECT files.id, files.filename, files.filepath, users.name AS uploader, users.role AS uploader_role, files.uploaded_at 
+    FROM files
+    INNER JOIN users ON files.user_id = users.id
+    WHERE users.role IN ('User', 'Manager')
+    ORDER BY files.uploaded_at DESC
+";
+$result = $conn->query($query);
 
-// ✅ Secure Query to Fetch Files Based on Role
-$query = "SELECT users.id AS user_id, users.name, users.role, files.id AS file_id, files.filename, files.filepath 
-          FROM files 
-          JOIN users ON files.user_id = users.id";
+// Handle file deletion
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
+    $file_id = $_POST['file_id'];
 
-if ($role === "User") {
-    $query .= " WHERE users.id = ?";
-} elseif ($role === "Manager") {
-    $query .= " WHERE users.role IN ('User', 'Manager')";
-} elseif ($role === "Admin") {
-    $query .= " WHERE users.role IN ('User', 'Manager', 'Admin') OR users.role = 'Admin'";
+    // Get file details
+    $stmt = $conn->prepare("SELECT filepath FROM files WHERE id = ?");
+    $stmt->bind_param("i", $file_id);
+    $stmt->execute();
+    $stmt->bind_result($filepath);
+    $stmt->fetch();
+    $stmt->close();
+
+    // Delete file from server and database
+    if (unlink($filepath)) {
+        $stmt = $conn->prepare("DELETE FROM files WHERE id = ?");
+        $stmt->bind_param("i", $file_id);
+        $stmt->execute();
+        $stmt->close();
+        $message = "✅ File deleted successfully.";
+    } else {
+        $message = "❌ Error deleting file.";
+    }
 }
-
-$stmt = $conn->prepare($query);
-
-if ($role === "User") {
-    $stmt->bind_param("i", $user_id);
-}
-
-$stmt->execute();
-$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -38,58 +48,52 @@ $result = $stmt->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Uploaded Files</title>
-    <link rel="icon" type="image/png" href="../assets/img/fav-logo.png">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <title>Admin - View Files</title>
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
-<div class="container mt-4">
-    <h2>All Uploaded Files</h2>
+<div class="window">
+    <div class="title-bar">
+        <span>📁 View Uploaded Files</span>
+        <a href="admin_dashboard.php" class="close-button">⬅️ Back</a>
+    </div>
 
-    <!-- Show success or error messages -->
-    <?php if (isset($_SESSION["success"])): ?>
-        <div class="alert alert-success"><?php echo $_SESSION["success"]; unset($_SESSION["success"]); ?></div>
-    <?php endif; ?>
-    <?php if (isset($_SESSION["error"])): ?>
-        <div class="alert alert-danger"><?php echo $_SESSION["error"]; unset($_SESSION["error"]); ?></div>
-    <?php endif; ?>
+    <div class="window-content">
+        <h2>Uploaded Files (Users & Managers)</h2>
 
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Uploaded By</th>
-                <th>Role</th>
-                <th>File Name</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php while ($row = $result->fetch_assoc()): ?>
+        <?php if (isset($message)): ?>
+            <p class="message"><?php echo $message; ?></p>
+        <?php endif; ?>
+
+        <table>
+            <thead>
                 <tr>
-                    <td><?php echo htmlspecialchars($row["name"]); ?></td>
-                    <td><?php echo htmlspecialchars($row["role"]); ?></td>
-                    <td><?php echo htmlspecialchars($row["filename"]); ?></td>
-                    <td>
-                        <a href="<?php echo htmlspecialchars($row["filepath"]); ?>" download class="btn btn-primary">Download</a>
-                        
-                        <?php if ($role === "Admin"): // Admins can delete any file ?>
-                            <a href="delete_file.php?id=<?php echo $row['file_id']; ?>" 
-                               onclick="return confirm('Are you sure you want to delete this file?')" 
-                               class="btn btn-danger">Delete</a>
-                        <?php elseif ($row["user_id"] == $user_id): // Users & Managers can delete only their own files ?>
-                            <a href="delete_file.php?id=<?php echo $row['file_id']; ?>" 
-                               onclick="return confirm('Are you sure you want to delete this file?')" 
-                               class="btn btn-warning">Delete</a>
-                        <?php endif; ?>
-                    </td>
+                    <th>Filename</th>
+                    <th>Uploader</th>
+                    <th>Role</th>
+                    <th>Uploaded At</th>
+                    <th>Action</th>
                 </tr>
-            <?php endwhile; ?>
-        </tbody>
-    </table>
-
-    <a href="admin_dashboard.php" class="btn btn-secondary mt-3">Back to Dashboard</a>
+            </thead>
+            <tbody>
+                <?php while ($row = $result->fetch_assoc()): ?>
+                    <tr>
+                        <td><a href="<?php echo $row['filepath']; ?>" target="_blank"><?php echo $row['filename']; ?></a></td>
+                        <td><?php echo $row['uploader']; ?></td>
+                        <td><?php echo $row['uploader_role']; ?></td>
+                        <td><?php echo $row['uploaded_at']; ?></td>
+                        <td>
+                            <form action="view_files.php" method="post">
+                                <input type="hidden" name="file_id" value="<?php echo $row['id']; ?>">
+                                <button type="submit" name="delete">🗑 Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 </body>
