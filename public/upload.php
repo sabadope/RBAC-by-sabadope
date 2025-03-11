@@ -17,48 +17,40 @@ $stmt->bind_result($role);
 $stmt->fetch();
 $stmt->close();
 
-// Define role-based upload directory
-$upload_dirs = [
-    'Admin' => '../uploads/admin/',
-    'Manager' => '../uploads/manager/',
-    'User' => '../uploads/user/'
-];
-
-$upload_dir = $upload_dirs[$role] ?? '../uploads/user/';
+// Define upload directory based on role
+$uploadDir = "../uploads/" . strtolower($role) . "/";
 
 // Ensure directory exists
-if (!is_dir($upload_dir)) {
-    mkdir($upload_dir, 0777, true);
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0777, true);
 }
 
-// File upload handling
-$message = "";
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
-    $file = $_FILES['file'];
-    $filename = basename($file['name']);
-    $filepath = $upload_dir . $filename;
+$error = "";
+$success = "";
+
+// Handle file upload
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
+    $file = $_FILES["file"];
+    $fileName = basename($file["name"]);
+    $filePath = $uploadDir . $fileName;
+    $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     
-    // File validation
-    $allowed_types = ['jpg', 'png', 'pdf', 'txt', 'docx'];
-    $file_ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-    
-    if (!in_array($file_ext, $allowed_types)) {
-        $message = "❌ Invalid file type. Allowed: " . implode(", ", $allowed_types);
-    } elseif ($file['size'] > 2 * 1024 * 1024) { // 2MB limit
-        $message = "❌ File too large. Max: 2MB.";
-    } elseif (file_exists($filepath)) {
-        $message = "❌ File already exists. Rename and try again.";
+    // Allowed file types (prevent malicious uploads)
+    $allowedTypes = ["jpg", "jpeg", "png", "pdf", "txt", "docx"];
+
+    if (!in_array($fileType, $allowedTypes)) {
+        $error = "❌ Invalid file type! Only JPG, PNG, PDF, TXT, and DOCX are allowed.";
+    } elseif ($file["size"] > 2 * 1024 * 1024) { // Limit to 2MB
+        $error = "❌ File is too large! Max size: 2MB.";
+    } elseif (move_uploaded_file($file["tmp_name"], $filePath)) {
+        $success = "✅ File uploaded successfully!";
+        // Store file info in the database
+        $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath, uploaded_at) VALUES (?, ?, ?, NOW())");
+        $stmt->bind_param("iss", $user_id, $fileName, $filePath);
+        $stmt->execute();
+        $stmt->close();
     } else {
-        // Move file & insert into database
-        if (move_uploaded_file($file['tmp_name'], $filepath)) {
-            $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath, uploaded_at) VALUES (?, ?, ?, NOW())");
-            $stmt->bind_param("iss", $user_id, $filename, $filepath);
-            $stmt->execute();
-            $stmt->close();
-            $message = "✅ File uploaded successfully!";
-        } else {
-            $message = "❌ Error uploading file.";
-        }
+        $error = "❌ Error uploading file. Please try again.";
     }
 }
 ?>
@@ -68,29 +60,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload File</title>
+    <title>Upload Files</title>
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
 <div class="window">
     <div class="title-bar">
-        <span>Upload File</span>
-        <a href="dashboard.php" class="close-button">Back</a>
+        <span>File Upload</span>
+        <a href="dashboard.php" class="close-button">⬅️ Back</a>
     </div>
 
     <div class="window-content">
-        <h2>Upload File</h2>
-        <p>Allowed file types: jpg, png, pdf, txt, docx (Max: 2MB)</p>
-        
-        <?php if ($message): ?>
-            <p class="message"><?php echo $message; ?></p>
+        <h2>Upload a File</h2>
+
+        <?php if ($error): ?>
+            <p class="error"><?php echo $error; ?></p>
         <?php endif; ?>
 
-        <form action="upload.php" method="post" enctype="multipart/form-data">
+        <?php if ($success): ?>
+            <p class="success"><?php echo $success; ?></p>
+        <?php endif; ?>
+
+        <form action="upload.php" method="POST" enctype="multipart/form-data">
             <input type="file" name="file" required>
-            <button type="submit">Upload</button>
+            <button type="submit">⬆️ Upload</button>
         </form>
+        
+        <p><a href="view_files.php">📁 View Uploaded Files</a></p>
     </div>
 </div>
 

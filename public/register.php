@@ -22,7 +22,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $role = $_POST['role']; 
+    $allowed_roles = ["User", "Manager", "Admin"];
+    $role = in_array($_POST['role'], $allowed_roles) ? $_POST['role'] : "User";
     $csrf_token = $_POST['csrf_token'];
 
     // Validate CSRF Token
