@@ -2,39 +2,35 @@
 session_start();
 include '../src/config.php';
 
-// Ensure only admin can upload files
-if (!isset($_SESSION["admin_logged_in"]) || $_SESSION["role"] !== "Admin") {
-    header("Location: admin_dashboard.php");
+if (!isset($_SESSION["user_id"])) {
+    header("Location: login.php");
     exit();
 }
 
-// Check if admin_id is stored in the session
-$admin_id = $_SESSION["admin_id"] ?? 1; // Use session admin_id, default to 1 if not set
+$user_id = $_SESSION["user_id"];
+$role = $_SESSION["role"]; // ✅ Fix: Use actual role from session
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
-    $uploadDir = "../uploads/";
+    $filename = basename($_FILES["file"]["name"]);
+    $filepath = "../uploads/" . $filename;
 
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
+    // Ensure the uploads directory exists
+    if (!is_dir("../uploads")) {
+        mkdir("../uploads", 0777, true);
     }
 
-    $fileName = basename($_FILES["file"]["name"]);
-    $targetFilePath = $uploadDir . $fileName;
-
-    if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
-        // Insert file details into the database
+    if (move_uploaded_file($_FILES["file"]["tmp_name"], $filepath)) {
         $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)");
-        $stmt->bind_param("iss", $admin_id, $fileName, $targetFilePath);
+        $stmt->bind_param("iss", $user_id, $filename, $filepath);
         
         if ($stmt->execute()) {
-            $_SESSION["success"] = "File uploaded successfully.";
+            $_SESSION["success"] = "File uploaded successfully!";
         } else {
-            $_SESSION["error"] = "Database error: " . $stmt->error;
+            $_SESSION["error"] = "Failed to save file info. " . $stmt->error;  // 🔍 Debugging output
         }
-
         $stmt->close();
     } else {
-        $_SESSION["error"] = "Error uploading file.";
+        $_SESSION["error"] = "File upload failed.";
     }
 
     header("Location: view_files.php");
@@ -42,30 +38,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
 }
 ?>
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>main</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/img/fav-logo.png">
-  <!-- Styles -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Upload File</title>
+    <link rel="icon" type="image/png" href="../assets/img/fav-logo.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
-<form method="POST" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload</button>
-</form>
-<a href="admin_dashboard.php">Back to Dashboard</a>
+<div class="container mt-5">
+    <h2>Upload File</h2>
+
+    <?php if (isset($_SESSION["error"])) : ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($_SESSION["error"]) ?></div>
+        <?php unset($_SESSION["error"]); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION["success"])) : ?>
+        <div class="alert alert-success"><?= htmlspecialchars($_SESSION["success"]) ?></div>
+        <?php unset($_SESSION["success"]); ?>
+    <?php endif; ?>
+
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <input type="file" name="file" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+    <br>
+    <a href="admin_dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
+</div>
 
 </body>
 </html>

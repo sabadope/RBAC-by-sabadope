@@ -1,75 +1,67 @@
 <?php
 session_start();
 include '../src/config.php';
+include '../src/session.php'; // Ensures user authentication
 
-if (!isset($_SESSION["user_id"])) {
-    header("Location: login.php");
-    exit();
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    die("Access denied. Please log in.");
 }
 
-$role = $_SESSION["role"];
-$user_id = $_SESSION["user_id"];
+$user_id = $_SESSION['user_id'];
+$role = $_SESSION['role'];
+
+// Role-based file access
+$where_clause = "";
+if ($role === "Admin") {
+    $where_clause = ""; // Admin sees all files
+} elseif ($role === "Manager") {
+    $where_clause = "WHERE u.role IN ('Manager', 'User')"; // Manager sees only Manager & User files
+} else {
+    $where_clause = "WHERE f.user_id = $user_id"; // Regular User sees only their own files
+}
 
 // Fetch files based on role
-$query = "SELECT users.name, files.filename, files.filepath FROM files 
-          JOIN users ON files.user_id = users.id";
+$sql = "SELECT f.id, f.filename, f.filepath, u.name AS uploader, u.role 
+        FROM files f 
+        JOIN users u ON f.user_id = u.id 
+        $where_clause 
+        ORDER BY f.uploaded_at DESC";
 
-if ($role === "User") {
-    $query .= " WHERE users.id = $user_id"; // Users see only their own files
-} elseif ($role === "Manager") {
-    $query .= " WHERE users.role IN ('User', 'Manager')"; // Managers see their own & users' files
-}
-
-$result = $conn->query($query);
+$result = $conn->query($sql);
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Uploaded Files</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/img/fav-logo.png">
-  <!-- Styles -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Files</title>
 </head>
 <body>
 
-<div class="container mt-4">
-    <h2>Uploaded Files</h2>
+<h2>Uploaded Files</h2>
 
-    <!-- Show success or error messages -->
-    <?php if (isset($_SESSION["success"])): ?>
-        <div class="alert alert-success"><?php echo $_SESSION["success"]; unset($_SESSION["success"]); ?></div>
-    <?php endif; ?>
-    <?php if (isset($_SESSION["error"])): ?>
-        <div class="alert alert-danger"><?php echo $_SESSION["error"]; unset($_SESSION["error"]); ?></div>
-    <?php endif; ?>
+<table border="1">
+    <tr>
+        <th>Filename</th>
+        <th>Uploader</th>
+        <th>Role</th>
+        <th>Download</th>
+    </tr>
 
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Uploaded By</th>
-                <th>File Name</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php while ($row = $result->fetch_assoc()): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($row["name"]); ?></td>
-                    <td><?php echo htmlspecialchars($row["filename"]); ?></td>
-                    <td><a href="<?php echo htmlspecialchars($row["filepath"]); ?>" download class="btn btn-primary">Download</a></td>
-                </tr>
-            <?php endwhile; ?>
-        </tbody>
-    </table>
+    <?php while ($row = $result->fetch_assoc()) : ?>
+    <tr>
+        <td><?php echo htmlspecialchars($row['filename']); ?></td>
+        <td><?php echo htmlspecialchars($row['uploader']); ?></td>
+        <td><?php echo htmlspecialchars($row['role']); ?></td>
+        <td><a href="<?php echo htmlspecialchars($row['filepath']); ?>" download>Download</a></td>
+    </tr>
+    <?php endwhile; ?>
 
-    <a href="dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
-</div>
+</table>
+
+<a href="dashboard.php">Back to Dashboard</a>
 
 </body>
 </html>

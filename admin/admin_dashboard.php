@@ -1,14 +1,24 @@
 <?php
-session_start();
-include '../src/config.php';
-
-// Ensure only admin can access
-if (!isset($_SESSION["admin_logged_in"]) || $_SESSION["role"] !== "Admin") {
-    header("Location: ../login.php");
-    exit();
+// Force logout to re-authenticate every time
+if (!isset($_SERVER['PHP_AUTH_USER'])) {
+    header('WWW-Authenticate: Basic realm="Restricted Admin Access"');
+    header('HTTP/1.0 401 Unauthorized');
+    echo "Access denied. Only admins can access this page.";
+    exit;
 }
 
-$user_name = $_SESSION["user_name"] ?? "Admin";
+// Check if the provided credentials are correct
+$valid_username = 'admin'; // Change this if you have multiple admins
+$valid_password = 'admin1230'; // Replace with the correct password
+
+if ($_SERVER['PHP_AUTH_USER'] !== $valid_username || $_SERVER['PHP_AUTH_PW'] !== $valid_password) {
+    header('HTTP/1.0 401 Unauthorized');
+    echo "Access denied. Only admins can access this page.";
+    exit;
+}
+
+$role = $_SESSION["role"];
+
 ?>
 
 <!DOCTYPE html>
@@ -16,23 +26,37 @@ $user_name = $_SESSION["user_name"] ?? "Admin";
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard</title>
-  <link rel="icon" type="image/png" href="../assets/img/fav-logo.png">
-  <link rel="stylesheet" href="../assets/css/style.css">
+  <title>main</title>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/img/fav-logo.png">
+  <!-- Styles -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 <body>
 
-<div class="container mt-4">
-    <h1>Welcome, <?php echo htmlspecialchars($user_name); ?>!</h1>
-    <p>This is the admin panel.</p>
+<h1>Welcome, Admin!</h1>
+<p>This is the admin panel.</p>
 
-    <div class="mt-3">
-        <a href="upload.php" class="btn btn-info">Upload File</a>
-        <a href="view_files.php" class="btn btn-warning">View Files</a>
-        <a href="../admin_logout.php" class="btn btn-danger">Logout</a>
-    </div>
-</div>
+<!-- Role-Based Buttons -->
+<?php if ($role === "Admin"): ?>
+    <button>Admin</button>
+    <button>Manager</button>
+    <button>User</button>
+<?php elseif ($role === "Manager"): ?>
+    <button>Manager</button>
+    <button>User</button>
+<?php elseif ($role === "User"): ?>
+    <button>User</button>
+<?php endif; ?>
+
+<!-- File Upload & View Files -->
+<a href="upload.php">Upload File</a>
+<a href="view_files.php">View Files</a>
+<a href="admin_logout.php">Logout</a>
 
 </body>
 </html>

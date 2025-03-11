@@ -1,48 +1,32 @@
 <?php
-session_start();
-require '../config/db.php'; // Include database connection
+include '../src/config.php';
+include 'admin_auth.php';
 
-// Check if the user is logged in as admin
-if (!isset($_SESSION['admin_logged_in'])) {
-    header("Location: admin_login.php");
-    exit;
-}
-
-// Check if file ID is provided
 if (isset($_GET['id'])) {
-    $file_id = intval($_GET['id']);
+    $file_id = $_GET['id'];
 
-    // Get the file details from the database
+    // Fetch the file details
     $query = "SELECT file_name FROM uploads WHERE id = ?";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "i", $file_id);
     mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $file = mysqli_fetch_assoc($result);
+    mysqli_stmt_bind_result($stmt, $file_name);
+    mysqli_stmt_fetch($stmt);
+    mysqli_stmt_close($stmt);
 
-    if ($file) {
-        $file_path = "../uploads/" . $file['file_name'];
-
-        // Delete the file from the server
-        if (file_exists($file_path)) {
-            unlink($file_path);
-        }
-
-        // Delete the record from the database
+    if ($file_name) {
+        // Delete from database
         $delete_query = "DELETE FROM uploads WHERE id = ?";
-        $delete_stmt = mysqli_prepare($conn, $delete_query);
-        mysqli_stmt_bind_param($delete_stmt, "i", $file_id);
-        mysqli_stmt_execute($delete_stmt);
+        $stmt = mysqli_prepare($conn, $delete_query);
+        mysqli_stmt_bind_param($stmt, "i", $file_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
 
-        // Redirect back to view_files.php
-        header("Location: view_files.php?success=File deleted successfully");
-        exit;
-    } else {
-        header("Location: view_files.php?error=File not found");
+        // Delete from server
+        unlink("../uploads/" . $file_name);
+
+        header("Location: view_upload.php?success=File deleted");
         exit;
     }
-} else {
-    header("Location: view_files.php?error=Invalid request");
-    exit;
 }
 ?>

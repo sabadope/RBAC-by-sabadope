@@ -1,48 +1,73 @@
 <?php
 session_start();
-if (!isset($_SESSION["user_id"])) {
+include '../src/config.php';
+
+// Redirect if not logged in
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-$role = $_SESSION["role"];
+// Get user details
+$user_id = $_SESSION['user_id'];
+$stmt = $conn->prepare("SELECT name, role FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($name, $role);
+$stmt->fetch();
+$stmt->close();
+
+// Role-based content
+$dashboard_title = "";
+$dashboard_content = "";
+
+switch ($role) {
+    case 'Admin':
+        $dashboard_title = "Admin Dashboard";
+        $dashboard_content = "<p>Welcome, Admin! You can manage users and view all uploaded files.</p>";
+        break;
+    case 'Manager':
+        $dashboard_title = "Manager Dashboard";
+        $dashboard_content = "<p>Welcome, Manager! You can view and manage manager/user files.</p>";
+        break;
+    case 'User':
+        $dashboard_title = "User Dashboard";
+        $dashboard_content = "<p>Welcome, $name! You can upload and view your own files.</p>";
+        break;
+    default:
+        session_destroy();
+        header("Location: login.php");
+        exit();
+}
+
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>main</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/img/fav-logo.png">
-  <!-- Styles -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $dashboard_title; ?></title>
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
-<h2>Welcome, <?php echo $_SESSION["name"]; ?></h2>
+<div class="window">
+    <div class="title-bar">
+        <span><?php echo $dashboard_title; ?></span>
+        <a href="logout.php" class="close-button">Logout</a>
+    </div>
 
-<!-- Role-Based Buttons -->
-<?php if ($role === "Admin"): ?>
-    <button>Admin</button>
-    <button>Manager</button>
-    <button>User</button>
-<?php elseif ($role === "Manager"): ?>
-    <button>Manager</button>
-    <button>User</button>
-<?php elseif ($role === "User"): ?>
-    <button>User</button>
-<?php endif; ?>
+    <div class="window-content">
+        <h2><?php echo $dashboard_title; ?></h2>
+        <?php echo $dashboard_content; ?>
 
-<!-- File Upload & View Files -->
-<a href="upload.php">Upload File</a>
-<a href="view_files.php">View Files</a>
-<a href="login.php">Logout</a>
+        <ul>
+            <li><a href="upload.php">Upload Files</a></li>
+            <li><a href="view_files.php">View Files</a></li>
+        </ul>
+    </div>
+</div>
 
 </body>
 </html>

@@ -2,78 +2,97 @@
 session_start();
 include '../src/config.php';
 
-if (!isset($_SESSION["user_id"])) {
+// Redirect if not logged in
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
-    $user_id = $_SESSION["user_id"];
-    $uploadDir = "../uploads/";
+// Get user details
+$user_id = $_SESSION['user_id'];
+$stmt = $conn->prepare("SELECT role FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($role);
+$stmt->fetch();
+$stmt->close();
 
-    // Create directory if not exists
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
+// Define role-based upload directory
+$upload_dirs = [
+    'Admin' => '../uploads/admin/',
+    'Manager' => '../uploads/manager/',
+    'User' => '../uploads/user/'
+];
 
-    $fileName = basename($_FILES["file"]["name"]);
-    $file_extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    $allowed_extensions = ['pdf', 'doc', 'docx', 'jpg', 'png'];
+$upload_dir = $upload_dirs[$role] ?? '../uploads/user/';
 
-    // Validate file type
-    if (!in_array($file_extension, $allowed_extensions)) {
-        $_SESSION["error"] = "Invalid file type! Only PDF, DOC, DOCX, JPG, and PNG are allowed.";
-        header("Location: view_files.php");
-        exit();
-    }
+// Ensure directory exists
+if (!is_dir($upload_dir)) {
+    mkdir($upload_dir, 0777, true);
+}
 
-    $targetFilePath = $uploadDir . $fileName;
-
-    if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
-        // Insert file info into database
-        $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)");
-        $stmt->bind_param("iss", $user_id, $fileName, $targetFilePath);
-
-        if ($stmt->execute()) {
-            $_SESSION["success"] = "File uploaded successfully.";
-        } else {
-            $_SESSION["error"] = "Error saving file to database.";
-        }
-
-        $stmt->close();
+// File upload handling
+$message = "";
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file'])) {
+    $file = $_FILES['file'];
+    $filename = basename($file['name']);
+    $filepath = $upload_dir . $filename;
+    
+    // File validation
+    $allowed_types = ['jpg', 'png', 'pdf', 'txt', 'docx'];
+    $file_ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    
+    if (!in_array($file_ext, $allowed_types)) {
+        $message = "❌ Invalid file type. Allowed: " . implode(", ", $allowed_types);
+    } elseif ($file['size'] > 2 * 1024 * 1024) { // 2MB limit
+        $message = "❌ File too large. Max: 2MB.";
+    } elseif (file_exists($filepath)) {
+        $message = "❌ File already exists. Rename and try again.";
     } else {
-        $_SESSION["error"] = "Error uploading file.";
+        // Move file & insert into database
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath, uploaded_at) VALUES (?, ?, ?, NOW())");
+            $stmt->bind_param("iss", $user_id, $filename, $filepath);
+            $stmt->execute();
+            $stmt->close();
+            $message = "✅ File uploaded successfully!";
+        } else {
+            $message = "❌ Error uploading file.";
+        }
     }
-
-    header("Location: view_files.php"); // Redirect to view files page
-    exit();
 }
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>main</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/img/fav-logo.png">
-  <!-- Styles -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload File</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
-<form method="POST" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload</button>
-</form>
-<a href="dashboard.php">Back to Dashboard</a>
+<div class="window">
+    <div class="title-bar">
+        <span>Upload File</span>
+        <a href="dashboard.php" class="close-button">Back</a>
+    </div>
+
+    <div class="window-content">
+        <h2>Upload File</h2>
+        <p>Allowed file types: jpg, png, pdf, txt, docx (Max: 2MB)</p>
+        
+        <?php if ($message): ?>
+            <p class="message"><?php echo $message; ?></p>
+        <?php endif; ?>
+
+        <form action="upload.php" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+</div>
 
 </body>
 </html>

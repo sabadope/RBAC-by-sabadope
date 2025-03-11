@@ -2,12 +2,12 @@
 session_start();
 
 // Set security authentication credentials (Basic Auth)
-$auth_username = "admin";
-$auth_password = "admin1230";
+$auth_username = "admin";  
+$auth_password = "admin1230";  
 
-// Force re-authentication if requested
+// Force re-authentication by clearing previous session if user clicks "Admin Login"
 if (isset($_GET['force_auth'])) {
-    header('HTTP/1.0 401 Unauthorized');
+    header('HTTP/1.0 401 Unauthorized'); // Forces the authentication prompt to appear again
 }
 
 // Check if authentication credentials are provided
@@ -26,7 +26,6 @@ if ($_SERVER['PHP_AUTH_USER'] !== $auth_username || $_SERVER['PHP_AUTH_PW'] !== 
     exit;
 }
 
-// Handle login via email & password
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
@@ -37,16 +36,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if ($email === $valid_email && $password === $valid_password) {
         $_SESSION['admin_logged_in'] = true;
-        $_SESSION['user_id'] = 1; // Admin's user ID
-        $_SESSION['user_name'] = "Admin";
-        $_SESSION['role'] = "Admin"; 
-
+        $_SESSION["user_id"] = 1; // Assign a dummy ID for admin
+        $_SESSION["name"] = "Admin"; // Set admin name
+        $_SESSION["role"] = "Admin"; // Assign role as Admin
+        
         header("Location: admin_dashboard.php");
         exit;
     } else {
-        $error_message = "Invalid email or password! Please try again.";
+        echo "<script>alert('Invalid email or password! Please try again.');</script>";
     }
 }
+
 ?>
 
 <!DOCTYPE html>
