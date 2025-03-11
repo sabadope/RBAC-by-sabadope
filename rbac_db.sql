@@ -15,3 +15,7 @@ CREATE TABLE files (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+INSERT INTO users (name, email, password, role, created_at) 
+VALUES ('Administrator', 'admin@gmail.com', '$2y$10$uRjZDf5A2hdEm6lWJeJOTenqIx0a3Jf3Nq7oHbL7pup9yILy6FkQ.', 'Admin', NOW());
+

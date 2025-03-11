@@ -1,49 +1,81 @@
 <?php
 session_start();
+include '../src/config.php';
 
-// Set security authentication credentials (Basic Auth)
-$auth_username = "admin";  
-$auth_password = "admin1230";  
-
-// Force re-authentication by clearing previous session if user clicks "Admin Login"
-if (isset($_GET['force_auth'])) {
-    header('HTTP/1.0 401 Unauthorized'); // Forces the authentication prompt to appear again
+// If already logged in, redirect to admin dashboard
+if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'Admin') {
+    header("Location: dashboard.php");
+    exit();
 }
 
-// Check if authentication credentials are provided
-if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
-    header('WWW-Authenticate: Basic realm="Admin Area"');
-    header('HTTP/1.0 401 Unauthorized');
-    echo "Unauthorized access. Please enter the correct credentials.";
-    exit;
+// Initialize error message
+$error = "";
+
+// CSRF Token Handling
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Verify entered credentials
-if ($_SERVER['PHP_AUTH_USER'] !== $auth_username || $_SERVER['PHP_AUTH_PW'] !== $auth_password) {
-    header('WWW-Authenticate: Basic realm="Admin Area"');
-    header('HTTP/1.0 401 Unauthorized');
-    echo "Invalid credentials. Please try again.";
-    exit;
+// Ensure default Admin exists
+$admin_email = "admin@gmail.com";
+$admin_password = "admin1230";
+
+// Check if the admin exists
+$stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+$stmt->bind_param("s", $admin_email);
+$stmt->execute();
+$stmt->store_result();
+
+// If no admin exists, create one
+if ($stmt->num_rows === 0) {
+    $hashed_password = password_hash($admin_password, PASSWORD_DEFAULT);
+    $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, created_at) VALUES ('Administrator', ?, ?, 'Admin', NOW())");
+    $stmt->bind_param("ss", $admin_email, $hashed_password);
+    $stmt->execute();
 }
+$stmt->close();
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email = $_POST['email'] ?? '';
-    $password = $_POST['password'] ?? '';
+// Process Admin Login
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
+    $csrf_token = $_POST['csrf_token'];
 
-    // Default admin credentials
-    $valid_email = "admin@gmail.com";
-    $valid_password = "admin1230";
+    // Validate CSRF Token
+    if (!hash_equals($_SESSION['csrf_token'], $csrf_token)) {
+        die("Invalid CSRF token");
+    }
 
-    if ($email === $valid_email && $password === $valid_password) {
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION["user_id"] = 1; // Assign a dummy ID for admin
-        $_SESSION["name"] = "Admin"; // Set admin name
-        $_SESSION["role"] = "Admin"; // Assign role as Admin
-        
-        header("Location: admin_dashboard.php");
-        exit;
+    // Validate inputs
+    if (empty($email) || empty($password)) {
+        $error = "Please fill in all fields.";
     } else {
-        echo "<script>alert('Invalid email or password! Please try again.');</script>";
+        if ($email === "admin@gmail.com") {
+            $stmt = $conn->prepare("SELECT id, name, password, role FROM users WHERE email = ?");
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $stmt->store_result();
+
+            if ($stmt->num_rows > 0) {
+                $stmt->bind_result($user_id, $name, $hashed_password, $role);
+                $stmt->fetch();
+
+                if ($role === 'Admin' && password_verify($password, $hashed_password)) {
+                    $_SESSION['user_id'] = $user_id;
+                    $_SESSION['name'] = $name;
+                    $_SESSION['role'] = $role;
+                    header("Location: dashboard.php");
+                    exit();
+                } else {
+                    $error = "Invalid email or password.";
+                }
+            } else {
+                $error = "Invalid email or password.";
+            }
+            $stmt->close();
+        } else {
+            $error = "Only admin can log in here.";
+        }
     }
 }
 
@@ -59,19 +91,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </head>
 <body>
 
-<h2>Admin Login</h2>
+<div class="window">
+    <div class="title-bar">
+        <span>Admin Login</span>
+        <a href="../public/index.php" class="close-button">X</a>
+    </div>
 
-<?php if (isset($error_message)) : ?>
-    <p style="color: red;"><?= htmlspecialchars($error_message) ?></p>
-<?php endif; ?>
+    <div class="window-content">
+        <h2>Admin Login</h2>
+        
+        <?php if (!empty($error)): ?>
+            <div class="error-box"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
 
-<form method="POST">
-    <input type="email" name="email" required placeholder="Email">
-    <input type="password" name="password" required placeholder="Password">
-    <button type="submit">Login</button>
-</form>
+        <form method="post" action="admin_login.php">
+            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+            <label>Email:</label>
+            <input type="email" name="email" value="admin@gmail.com" required>
+            
+            <label>Password:</label>
+            <input type="password" name="password" value="admin1230" required>
 
-<a href="../public/login.php">Back to User Login</a>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</div>
 
 </body>
 </html>

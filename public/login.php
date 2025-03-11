@@ -40,13 +40,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->fetch();
 
             // Verify password
-            if (password_verify($password, $hashed_password)) {
-                $_SESSION['user_id'] = $user_id;
-                $_SESSION['name'] = $name;
-                $_SESSION['role'] = $role;
-                header("Location: dashboard.php");
-                exit();
-            } else {
+            if ($role === 'Admin') {
+                $error = "Admins must log in via the Admin Login page.";
+            } elseif (password_verify($password, $hashed_password)) {
+
                 $error = "Invalid email or password.";
             }
         } else {
@@ -55,6 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->close();
     }
 }
+
 
 ?>
 

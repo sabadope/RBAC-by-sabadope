@@ -1,62 +1,53 @@
 <?php
-// Force logout to re-authenticate every time
-if (!isset($_SERVER['PHP_AUTH_USER'])) {
-    header('WWW-Authenticate: Basic realm="Restricted Admin Access"');
-    header('HTTP/1.0 401 Unauthorized');
-    echo "Access denied. Only admins can access this page.";
-    exit;
+session_start();
+require_once '../src/config.php'; // Database connection
+require_once '../src/auth.php'; // Authentication handling
+
+// Ensure only admins can access
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {
+    header('Location: ../public/index.php');
+    exit();
 }
 
-// Check if the provided credentials are correct
-$valid_username = 'admin'; // Change this if you have multiple admins
-$valid_password = 'admin1230'; // Replace with the correct password
+// Fetch total users count
+$stmt = $conn->query("SELECT COUNT(*) as user_count FROM users");
+$userCount = $stmt->fetch(PDO::FETCH_ASSOC)['user_count'];
 
-if ($_SERVER['PHP_AUTH_USER'] !== $valid_username || $_SERVER['PHP_AUTH_PW'] !== $valid_password) {
-    header('HTTP/1.0 401 Unauthorized');
-    echo "Access denied. Only admins can access this page.";
-    exit;
-}
+// Fetch total files count
+$stmt = $conn->query("SELECT COUNT(*) as file_count FROM files");
+$fileCount = $stmt->fetch(PDO::FETCH_ASSOC)['file_count'];
 
-$role = $_SESSION["role"];
-
+// Fetch recent uploads (latest 5 files)
+$stmt = $conn->query("SELECT users.name, files.filename, files.uploaded_at FROM files 
+                      JOIN users ON files.user_id = users.id ORDER BY files.uploaded_at DESC LIMIT 5");
+$recentFiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>main</title>
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="assets/img/fav-logo.png">
-  <!-- Styles -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
+    <h1>Admin Dashboard</h1>
+    <p>Welcome, Admin!</p>
 
-<h1>Welcome, Admin!</h1>
-<p>This is the admin panel.</p>
-
-<!-- Role-Based Buttons -->
-<?php if ($role === "Admin"): ?>
-    <button>Admin</button>
-    <button>Manager</button>
-    <button>User</button>
-<?php elseif ($role === "Manager"): ?>
-    <button>Manager</button>
-    <button>User</button>
-<?php elseif ($role === "User"): ?>
-    <button>User</button>
-<?php endif; ?>
-
-<!-- File Upload & View Files -->
-<a href="upload.php">Upload File</a>
-<a href="view_files.php">View Files</a>
-<a href="admin_logout.php">Logout</a>
-
+    <div class="stats">
+        <p>Total Users: <?php echo $userCount; ?></p>
+        <p>Total Files Uploaded: <?php echo $fileCount; ?></p>
+    </div>
+    
+    <h2>Recent Uploads</h2>
+    <ul>
+        <?php foreach ($recentFiles as $file): ?>
+            <li><?php echo htmlspecialchars($file['name']) . ' uploaded ' . htmlspecialchars($file['filename']) . ' on ' . $file['uploaded_at']; ?></li>
+        <?php endforeach; ?>
+    </ul>
+    
+    <a href="manage_users.php">Manage Users</a> | <a href="manage_files.php">Manage Files</a>
+    <br><br>
+    <a href="../public/logout.php">Logout</a>
 </body>
 </html>
