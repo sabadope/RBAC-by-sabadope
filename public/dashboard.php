@@ -1,21 +1,14 @@
 <?php
 session_start();
-include '../src/config.php';
+include '../src/session.php'; // Secure session handling
 
-// Redirect if not logged in
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION["user_id"])) {
     header("Location: login.php");
     exit();
 }
 
-// Get user details
-$user_id = $_SESSION['user_id'];
-$stmt = $conn->prepare("SELECT name, role FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$stmt->bind_result($name, $role);
-$stmt->fetch();
-$stmt->close();
+$role = $_SESSION["role"];
+$name = htmlspecialchars($_SESSION["name"]); // Prevent XSS
 ?>
 
 <!DOCTYPE html>
@@ -24,36 +17,30 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
-<div class="window">
-    <div class="title-bar">
-        <span><?php echo $role; ?> Dashboard</span>
-        <a href="logout.php" class="close-button">Logout</a>
-    </div>
+<h2>Welcome, <?php echo $name; ?></h2>
 
-    <div class="window-content">
-        <h2>Welcome, <?php echo htmlspecialchars($name); ?>!</h2>
-        <p>You are logged in as: <strong><?php echo $role; ?></strong></p>
+<!-- Role-Based Navigation -->
+<?php if ($role === "Admin"): ?>
+    <a href="admin_dashboard.php">Admin Panel</a>
+    <a href="view_files.php">View All Files</a>
+<?php endif; ?>
 
-        <h3>Navigation</h3>
-        <ul>
-            <li><a href="view_files.php">📁 View Files</a></li>
-            <li><a href="upload.php">⬆️ Upload Files</a></li>
-        </ul>
+<?php if ($role === "Manager" || $role === "Admin"): ?>
+    <a href="view_files.php">View Manager & User Files</a>
+<?php endif; ?>
 
-        <?php if ($role === 'Admin'): ?>
-            <h3>Admin Controls</h3>
-            <ul>
-                <li><a href="../admin/manage_users.php">👥 Manage Users</a></li>
-            </ul>
-        <?php endif; ?>
+<?php if ($role === "User" || $role === "Manager" || $role === "Admin"): ?>
+    <a href="upload.php">Upload File</a>
+    <a href="view_files.php">View My Files</a>
+<?php endif; ?>
 
-        <p><a href="logout.php">🚪 Logout</a></p>
-    </div>
-</div>
+<!-- Logout -->
+<form method="POST" action="logout.php">
+    <button type="submit">Logout</button>
+</form>
 
 </body>
 </html>

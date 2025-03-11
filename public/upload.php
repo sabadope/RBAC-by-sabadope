@@ -1,56 +1,66 @@
 <?php
 session_start();
 include '../src/config.php';
+include '../src/csrf.php';
 
-// Redirect if not logged in
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
+    die("Unauthorized access.");
 }
 
-// Get user details
+$role = $_SESSION['role'];
 $user_id = $_SESSION['user_id'];
-$stmt = $conn->prepare("SELECT role FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$stmt->bind_result($role);
-$stmt->fetch();
-$stmt->close();
 
-// Define upload directory based on role
-$uploadDir = "../uploads/" . strtolower($role) . "/";
+// Define upload directories based on roles
+$upload_dirs = [
+    "Admin" => "../uploads/admin/",
+    "Manager" => "../uploads/manager/",
+    "User" => "../uploads/user/"
+];
 
-// Ensure directory exists
-if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
+if (!isset($upload_dirs[$role])) {
+    die("Invalid role.");
 }
 
-$error = "";
-$success = "";
+$target_dir = $upload_dirs[$role];
 
-// Handle file upload
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
-    $file = $_FILES["file"];
-    $fileName = basename($file["name"]);
-    $filePath = $uploadDir . $fileName;
-    $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-    
-    // Allowed file types (prevent malicious uploads)
-    $allowedTypes = ["jpg", "jpeg", "png", "pdf", "txt", "docx"];
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!validateCsrfToken($_POST["csrf_token"])) {
+        die("CSRF token validation failed.");
+    }
 
-    if (!in_array($fileType, $allowedTypes)) {
-        $error = "❌ Invalid file type! Only JPG, PNG, PDF, TXT, and DOCX are allowed.";
-    } elseif ($file["size"] > 2 * 1024 * 1024) { // Limit to 2MB
-        $error = "❌ File is too large! Max size: 2MB.";
-    } elseif (move_uploaded_file($file["tmp_name"], $filePath)) {
-        $success = "✅ File uploaded successfully!";
-        // Store file info in the database
+    if (!isset($_FILES["file"]) || $_FILES["file"]["error"] != UPLOAD_ERR_OK) {
+        die("File upload error.");
+    }
+
+    // Allowed file types
+    $allowed_types = ["jpg", "jpeg", "png", "pdf", "docx"];
+    $max_size = 2 * 1024 * 1024; // 2MB max file size
+
+    $file_name = basename($_FILES["file"]["name"]);
+    $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+    $new_file_name = time() . "_" . $user_id . "." . $file_ext;
+    $target_file = $target_dir . $new_file_name;
+
+    // Validate file type
+    if (!in_array($file_ext, $allowed_types)) {
+        die("Invalid file type.");
+    }
+
+    // Validate file size
+    if ($_FILES["file"]["size"] > $max_size) {
+        die("File too large.");
+    }
+
+    // Move uploaded file securely
+    if (move_uploaded_file($_FILES["file"]["tmp_name"], $target_file)) {
         $stmt = $conn->prepare("INSERT INTO files (user_id, filename, filepath, uploaded_at) VALUES (?, ?, ?, NOW())");
-        $stmt->bind_param("iss", $user_id, $fileName, $filePath);
+        $stmt->bind_param("iss", $user_id, $new_file_name, $target_file);
         $stmt->execute();
         $stmt->close();
+
+        echo "File uploaded successfully.";
     } else {
-        $error = "❌ Error uploading file. Please try again.";
+        echo "File upload failed.";
     }
 }
 ?>
@@ -58,38 +68,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Files</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload File</title>
 </head>
 <body>
 
-<div class="window">
-    <div class="title-bar">
-        <span>File Upload</span>
-        <a href="dashboard.php" class="close-button">⬅️ Back</a>
-    </div>
-
-    <div class="window-content">
-        <h2>Upload a File</h2>
-
-        <?php if ($error): ?>
-            <p class="error"><?php echo $error; ?></p>
-        <?php endif; ?>
-
-        <?php if ($success): ?>
-            <p class="success"><?php echo $success; ?></p>
-        <?php endif; ?>
-
-        <form action="upload.php" method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <button type="submit">⬆️ Upload</button>
-        </form>
-        
-        <p><a href="view_files.php">📁 View Uploaded Files</a></p>
-    </div>
-</div>
+<form method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="<?php echo generateCsrfToken(); ?>">
+    <input type="file" name="file" required>
+    <button type="submit">Upload</button>
+</form>
 
 </body>
 </html>

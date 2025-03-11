@@ -1,32 +1,48 @@
 <?php
+session_start();
 include '../src/config.php';
-include 'admin_auth.php';
 
-if (isset($_GET['id'])) {
-    $file_id = $_GET['id'];
-
-    // Fetch the file details
-    $query = "SELECT file_name FROM uploads WHERE id = ?";
-    $stmt = mysqli_prepare($conn, $query);
-    mysqli_stmt_bind_param($stmt, "i", $file_id);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_bind_result($stmt, $file_name);
-    mysqli_stmt_fetch($stmt);
-    mysqli_stmt_close($stmt);
-
-    if ($file_name) {
-        // Delete from database
-        $delete_query = "DELETE FROM uploads WHERE id = ?";
-        $stmt = mysqli_prepare($conn, $delete_query);
-        mysqli_stmt_bind_param($stmt, "i", $file_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-
-        // Delete from server
-        unlink("../uploads/" . $file_name);
-
-        header("Location: view_upload.php?success=File deleted");
-        exit;
-    }
+// Redirect if not logged in or not an admin
+if (!isset($_SESSION['admin_id'])) {
+    header("Location: admin_login.php");
+    exit();
 }
+
+// Check if file ID is provided
+if (isset($_GET['id'])) {
+    $file_id = intval($_GET['id']);
+
+    // Fetch file details from database
+    $stmt = $conn->prepare("SELECT id, filename, filepath FROM files WHERE id = ?");
+    $stmt->bind_param("i", $file_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $file = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($file) {
+        $filePath = $file['filepath'];
+
+        // Delete file from server
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+
+        // Delete record from database
+        $stmt = $conn->prepare("DELETE FROM files WHERE id = ?");
+        $stmt->bind_param("i", $file_id);
+        $stmt->execute();
+        $stmt->close();
+
+        $_SESSION['message'] = "✅ File deleted successfully.";
+    } else {
+        $_SESSION['message'] = "❌ File not found.";
+    }
+} else {
+    $_SESSION['message'] = "❌ Invalid request.";
+}
+
+// Redirect back to view files
+header("Location: view_files.php");
+exit();
 ?>

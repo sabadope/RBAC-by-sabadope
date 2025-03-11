@@ -86,7 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete'])) {
                         <td>
                             <form action="view_files.php" method="post">
                                 <input type="hidden" name="file_id" value="<?php echo $row['id']; ?>">
-                                <button type="submit" name="delete">🗑 Delete</button>
+                                <td><a href="delete_file.php?id=<?php echo $file['id']; ?>" onclick="return confirm('Are you sure you want to delete this file?');">🗑️ Delete</a></td>
+
                             </form>
                         </td>
                     </tr>

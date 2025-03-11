@@ -2,34 +2,16 @@
 session_start();
 include '../src/config.php';
 
-// If already logged in, redirect to dashboard
-if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
-    exit();
-}
-
-// CSRF Token Handling
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Initialize error messages
-$error = "";
-
-// Process Registration Form
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $name = trim($_POST['name']);
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
-    $allowed_roles = ["User", "Manager", "Admin"];
-    $role = in_array($_POST['role'], $allowed_roles) ? $_POST['role'] : "User";
-    $csrf_token = $_POST['csrf_token'];
-
-    // Validate CSRF Token
-    if (!hash_equals($_SESSION['csrf_token'], $csrf_token)) {
-        die("Invalid CSRF token");
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        die("Invalid CSRF token!");
     }
+
+    $name = trim($_POST["name"]);
+    $email = trim($_POST["email"]);
+    $password = $_POST["password"];
+    $confirm_password = $_POST["confirm_password"];
+    $role = $_POST["role"] ?? 'user'; // Default role is 'user'
 
     // Validate inputs
     if (empty($name) || empty($email) || empty($password) || empty($confirm_password)) {
@@ -39,87 +21,74 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } elseif ($password !== $confirm_password) {
         $error = "Passwords do not match.";
     } elseif (strlen($password) < 8) {
-        $error = "Password must be at least 8 characters.";
-    } elseif (!in_array($role, ['User', 'Manager'])) { // Prevent unauthorized roles
-        $error = "Invalid role selected.";
+        $error = "Password must be at least 8 characters long.";
     } else {
         // Check if email already exists
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $stmt->store_result();
+
         if ($stmt->num_rows > 0) {
-            $error = "Email is already registered.";
+            $error = "Email already registered.";
         } else {
             // Hash password
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-            // Insert user
+            // Insert new user
             $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
             $stmt->bind_param("ssss", $name, $email, $hashed_password, $role);
+
             if ($stmt->execute()) {
-                header("Location: login.php?registered=success");
+                $_SESSION["user_id"] = $stmt->insert_id;
+                $_SESSION["name"] = $name;
+                $_SESSION["role"] = $role;
+                session_regenerate_id(true); // Secure session
+
+                header("Location: dashboard.php");
                 exit();
             } else {
-                $error = "Registration failed. Please try again.";
+                $error = "Registration failed. Try again.";
             }
         }
         $stmt->close();
     }
 }
 
+// Generate CSRF Token
+$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
-    <link rel="stylesheet" href="../assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register</title>
 </head>
 <body>
 
-<div class="window">
-    <div class="title-bar">
-        <span>Register</span>
-        <a href="index.php" class="close-button">X</a>
-    </div>
+<?php if (isset($error)): ?>
+    <p style="color: red;"><?php echo htmlspecialchars($error); ?></p>
+<?php endif; ?>
 
-    <div class="window-content">
-        <h2>Create an Account</h2>
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+    <input type="text" name="name" required placeholder="Full Name">
+    <input type="email" name="email" required placeholder="Email">
+    <input type="password" name="password" required placeholder="Password">
+    <input type="password" name="confirm_password" required placeholder="Confirm Password">
+    
+    <label for="role">Register as:</label>
+    <select name="role" id="role">
+        <option value="user">User</option>
+        <option value="manager">Manager</option>
+    </select>
 
-        <?php if (!empty($error)): ?>
-            <div class="error-box"><?php echo htmlspecialchars($error); ?></div>
-        <?php endif; ?>
+    <button type="submit">Register</button>
+</form>
 
-        <form method="post" action="register.php">
-            <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
-
-            <label>Name:</label>
-            <input type="text" name="name" required>
-
-            <label>Email:</label>
-            <input type="email" name="email" required>
-
-            <label>Password:</label>
-            <input type="password" name="password" required>
-
-            <label>Confirm Password:</label>
-            <input type="password" name="confirm_password" required>
-
-            <label>Role:</label>
-            <select name="role">
-                <option value="User">User</option>
-                <option value="Manager">Manager</option>
-            </select>
-
-            <button type="submit">Register</button>
-        </form>
-
-        <p>Already have an account? <a href="login.php">Login here</a></p>
-    </div>
-</div>
+<a href="login.php">Already have an account? Login</a>
 
 </body>
 </html>

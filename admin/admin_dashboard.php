@@ -35,9 +35,9 @@ if (isset($_GET['logout'])) {
         <h2>Welcome, Admin!</h2>
         <p>This is the Admin Dashboard.</p>
 
-        <a href="admin_upload.php">Upload</a>
+        <a href="upload_files.php">Upload</a>
         <a href="view_files.php">View Files</a>
-        <a href="?logout=true" class="button">Logout</a>
+        <a href="admin_logout.php" class="button">Logout</a>
     </div>
 </div>
 
