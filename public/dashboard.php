@@ -16,30 +16,6 @@ $stmt->execute();
 $stmt->bind_result($name, $role);
 $stmt->fetch();
 $stmt->close();
-
-// Role-based content
-$dashboard_title = "";
-$dashboard_content = "";
-
-switch ($role) {
-    case 'Admin':
-        $dashboard_title = "Admin Dashboard";
-        $dashboard_content = "<p>Welcome, Admin! You can manage users and view all uploaded files.</p>";
-        break;
-    case 'Manager':
-        $dashboard_title = "Manager Dashboard";
-        $dashboard_content = "<p>Welcome, Manager! You can view and manage manager/user files.</p>";
-        break;
-    case 'User':
-        $dashboard_title = "User Dashboard";
-        $dashboard_content = "<p>Welcome, $name! You can upload and view your own files.</p>";
-        break;
-    default:
-        session_destroy();
-        header("Location: login.php");
-        exit();
-}
-
 ?>
 
 <!DOCTYPE html>
@@ -47,25 +23,35 @@ switch ($role) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $dashboard_title; ?></title>
+    <title>Dashboard</title>
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
 
 <div class="window">
     <div class="title-bar">
-        <span><?php echo $dashboard_title; ?></span>
+        <span><?php echo $role; ?> Dashboard</span>
         <a href="logout.php" class="close-button">Logout</a>
     </div>
 
     <div class="window-content">
-        <h2><?php echo $dashboard_title; ?></h2>
-        <?php echo $dashboard_content; ?>
+        <h2>Welcome, <?php echo htmlspecialchars($name); ?>!</h2>
+        <p>You are logged in as: <strong><?php echo $role; ?></strong></p>
 
+        <h3>Navigation</h3>
         <ul>
-            <li><a href="upload.php">Upload Files</a></li>
-            <li><a href="view_files.php">View Files</a></li>
+            <li><a href="view_files.php">📁 View Files</a></li>
+            <li><a href="upload.php">⬆️ Upload Files</a></li>
         </ul>
+
+        <?php if ($role === 'Admin'): ?>
+            <h3>Admin Controls</h3>
+            <ul>
+                <li><a href="../admin/manage_users.php">👥 Manage Users</a></li>
+            </ul>
+        <?php endif; ?>
+
+        <p><a href="logout.php">🚪 Logout</a></p>
     </div>
 </div>
 
